@@ -135,7 +135,7 @@ router.delete(
       if (existing.userId !== req.user!.userId)
         throw new ForbiddenError("You are not allowed to delete this key");
 
-      const updated = await prisma.apiKey.update({
+       await prisma.apiKey.update({
         where: {
             id
         },
