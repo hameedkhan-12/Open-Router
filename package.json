@@ -1,36 +1,32 @@
 {
-  "name": "primary-backend",
-  "module": "index.ts",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
-  },
+  "name": "openrouter",
   "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/pg": "^8.16.0",
+    "prettier": "^3.7.4",
+    "prisma": "^7.4.2",
+    "turbo": "^2.8.11",
+    "typescript": "5.9.2"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "engines": {
+    "node": ">=18"
   },
+  "packageManager": "bun@1.3.10",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "dependencies": {
-    "@repo/shared": "*",
-    "@types/bcrypt": "^6.0.0",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/express-rate-limit": "^6.0.2",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/morgan": "^1.9.10",
-    "bcrypt": "^6.0.0",
-    "cors": "^2.8.6",
-    "db": "*",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
-    "helmet": "^8.1.0",
-    "jwt": "^0.2.0",
-    "morgan": "^1.10.1",
-    "uuid": "^13.0.0",
-    "winston": "^3.19.0",
-    "zod": "^4.3.6"
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "dotenv": "^17.3.1",
+    "pg": "^8.19.0"
   }
 }

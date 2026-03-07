@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  apiKeys      ApiKey[]
+  credits      Int      @default(1000)
+  role         UserRole @default(USER)
+}
+
+model ApiKey {
+  id            Int                  @id @default(autoincrement())
+  user          User                 @relation(fields: [userId], references: [id])
+  userId        Int
+  key           String               @unique
+  name          String
+  disabled      Boolean              @default(false)
+  deleted       Boolean              @default(false)
+  lastUsedAt    DateTime?
+  createdAt     DateTime             @default(now())
+  metrics       ApiKeyMetric[]
+  rateLimitLogs ApiKeyRateLimitLog[]
+  requestLogs   RequestLog[]
+
+  @@index([key])
+  @@index([userId])
+}
+
+model ApiKeyMetric {
+  id        Int      @id @default(autoincrement())
+  apiKey    ApiKey   @relation(fields: [apiKeyId], references: [id])
+  apiKeyId  Int
+  date      DateTime
+  requests  Int      @default(0)
+  tokensIn  Int      @default(0)
+  tokensOut Int      @default(0)
+
+  @@unique([apiKeyId, date])
+  @@index([apiKeyId, date])
+}
+
+model ApiKeyRateLimitLog {
+  id        Int      @id @default(autoincrement())
+  apiKey    ApiKey   @relation(fields: [apiKeyId], references: [id])
+  apiKeyId  Int
+  timestamp DateTime @default(now())
+
+  @@index([apiKeyId, timestamp])
+}
+
+model RequestLog {
+  id           Int      @id @default(autoincrement())
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id])
+  apiKeyId     Int
+  path         String
+  method       String
+  status       Int
+  inputTokens  Int
+  outputTokens Int
+  createdAt    DateTime @default(now())
+
+  @@index([apiKeyId, createdAt])
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
