@@ -7,6 +7,7 @@ export function useMetrics(apiKeyId: number, days = 30){
         queryKey: ["metrics", apiKeyId, days],
         queryFn: async() => {
             const { data } = await apiClient.get<MetricsResponse>(`/keys/${apiKeyId}/metrics?days=${days}`);
+            console.log(data);
             return data.metrics;
         },
         enabled: !!apiKeyId
@@ -18,6 +19,7 @@ export function useAggregateMetrics(days = 30){
         queryKey: ["metrics", "aggregate", days],
         queryFn: async() => {
             const { data } =  await apiClient.get<MetricsResponse>(`/keys/metrics/aggregate?days=${days}`);
+            console.log(data)
             return data.metrics;
         }
     })

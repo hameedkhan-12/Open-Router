@@ -3,8 +3,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiKeyDTO } from "@repo/shared";
 import { useApiKeys } from "hooks/useApiKeys";
 import { useAggregateMetrics, useMetrics } from "hooks/useMetrics";
-import { ChevronDown, ChevronUp, X } from "lucide-react";
-import React, { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -18,12 +18,14 @@ import {
   YAxis,
 } from "recharts";
 
-const CHART_STYLE = {
-  grid: "var(--color-border)",
-  muted: "var(--color-muted-foreground)",
-  primary: "var(--color-primary)",
-  chart2: "var(--color-chart-2)",
-};
+// Read CSS variables at runtime so they work inside SVG
+function getCssVar(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const val = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return val || fallback;
+}
 
 const tooltipStyle = {
   contentStyle: {
@@ -35,19 +37,31 @@ const tooltipStyle = {
   },
 };
 
-interface KeyMatricsPanelProps {
+interface KeyMetricsPanelProps {
   apiKey: ApiKeyDTO;
   days: number;
 }
-const KeyMetricsPanel = ({ apiKey, days }: KeyMatricsPanelProps) => {
+
+const KeyMetricsPanel = ({ apiKey, days }: KeyMetricsPanelProps) => {
   const { data, isLoading } = useMetrics(apiKey.id, days);
+  const [colors, setColors] = useState({
+    primary: "#6366f1",
+    muted: "#94a3b8",
+    grid: "#e2e8f0",
+  });
+
+  useEffect(() => {
+    setColors({
+      primary: getCssVar("--color-primary", "#6366f1"),
+      muted: getCssVar("--color-muted-foreground", "#94a3b8"),
+      grid: getCssVar("--color-border", "#e2e8f0"),
+    });
+  }, []);
 
   if (isLoading) return <Skeleton className="h-48 w-full mt-4" />;
   if (!data) return null;
 
-  const dailyData = data.daily;
-
-  const chartData = dailyData.map((day) => ({
+  const chartData = data.daily.map((day) => ({
     date: day.date.slice(5),
     tokensIn: day.tokensIn,
     tokensOut: day.tokensOut,
@@ -55,77 +69,84 @@ const KeyMetricsPanel = ({ apiKey, days }: KeyMatricsPanelProps) => {
   }));
 
   const SUMMARY_STATS = [
-    {
-      label: "Total Requests",
-      value: data.totalRequests,
-    },
-    {
-      label: "Total Tokens In",
-      value: data.totalTokensIn,
-    },
-    {
-      label: "Total Tokens Out",
-      value: data.totalTokensOut,
-    },
+    { label: "Total Requests", value: data.totalRequests },
+    { label: "Tokens In", value: data.totalTokensIn },
+    { label: "Tokens Out", value: data.totalTokensOut },
   ];
 
   return (
-    <div>
-      <div>
+    <div className="pt-4 space-y-4">
+      <div className="grid grid-cols-3 gap-3">
         {SUMMARY_STATS.map((stat) => (
           <div key={stat.label} className="rounded-lg bg-secondary/50 p-3">
-            <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               {stat.label}
             </p>
-            <p className="text-sm font-semibold leading-none text-foreground">
+            <p className="mt-1 text-lg font-bold font-mono leading-none text-foreground">
               {stat.value.toLocaleString()}
             </p>
           </div>
         ))}
       </div>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart
-          data={chartData}
-          margin={{ top: 4, right: 4, left: -24, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke={CHART_STYLE.grid} />
-          <XAxis
-            dataKey="date"
-            tick={{
-              fontSize: 10,
-              fill: CHART_STYLE.muted,
-              fontFamily: "DM Mono, monospace",
-            }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 10, fill: CHART_STYLE.muted }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip {...tooltipStyle} />
-          <Bar
-            dataKey="requests"
-            fill={CHART_STYLE.primary}
-            radius={[3, 3, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+
+      <div style={{ width: "100%", height: "160px" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 4, right: 4, left: -24, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10, fill: colors.muted, fontFamily: "monospace" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: colors.muted }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip {...tooltipStyle} />
+            <Bar
+              dataKey="requests"
+              fill={colors.primary}
+              radius={[3, 3, 0, 0]}
+              minPointSize={3}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };
 
 const MetricsPage = () => {
   const [days, setDays] = useState(30);
-  const { data: keys = [], isLoading: keysLoading } = useApiKeys();
+  const { data: keys = [] } = useApiKeys();
   const { data: aggregate, isLoading } = useAggregateMetrics(days);
   const [expandedKey, setExpandedKey] = useState<number | null>(null);
 
+  // Resolve CSS variables into actual color values for use inside SVG
+  const [colors, setColors] = useState({
+    primary: "#6366f1",
+    chart2: "#22c55e",
+    muted: "#94a3b8",
+    grid: "#e2e8f0",
+  });
+
+  useEffect(() => {
+    setColors({
+      primary: getCssVar("--color-primary", "#6366f1"),
+      chart2: getCssVar("--color-chart-2", "#22c55e"),
+      muted: getCssVar("--color-muted-foreground", "#94a3b8"),
+      grid: getCssVar("--color-border", "#e2e8f0"),
+    });
+  }, []);
+
   const activeKeys = keys.filter((key) => !key.disabled && !key.deleted);
 
-  const daily = aggregate?.daily ?? [];
-  const aggregateChart = daily.map((day) => ({
+  const aggregateChart = (aggregate?.daily ?? []).map((day) => ({
     date: day.date.slice(5),
     tokensIn: day.tokensIn,
     tokensOut: day.tokensOut,
@@ -133,21 +154,14 @@ const MetricsPage = () => {
   }));
 
   const SUMMARY_STATS = [
-    {
-      label: "Total Requests",
-      value: aggregate?.totalRequests ?? 0,
-    },
-    {
-      label: "Total Tokens In",
-      value: aggregate?.totalTokensIn ?? 0,
-    },
-    {
-      label: "Total Tokens Out",
-      value: aggregate?.totalTokensOut ?? 0,
-    },
+    { label: "Total Requests", value: aggregate?.totalRequests ?? 0 },
+    { label: "Total Tokens In", value: aggregate?.totalTokensIn ?? 0 },
+    { label: "Total Tokens Out", value: aggregate?.totalTokensOut ?? 0 },
   ];
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-8">
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Metrics</h1>
@@ -160,7 +174,11 @@ const MetricsPage = () => {
             <button
               key={day}
               onClick={() => setDays(day)}
-              className={`rounded px-3 py-1.5 font-mono text-xs transition-colors ${days === day ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+              className={`rounded px-3 py-1.5 font-mono text-xs transition-colors ${
+                days === day
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
             >
               {day}d
             </button>
@@ -168,9 +186,10 @@ const MetricsPage = () => {
         </div>
       </div>
 
+      {/* Summary stat cards */}
       <div className="grid grid-cols-3 gap-4">
         {SUMMARY_STATS.map((stat) => (
-          <Card>
+          <Card key={stat.label}>
             <CardContent className="p-5">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 {stat.label}
@@ -187,86 +206,72 @@ const MetricsPage = () => {
         ))}
       </div>
 
+      {/* Area chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Token Usage - {days} Days</CardTitle>
+          <CardTitle>Token Usage — {days} Days</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <Skeleton />
+            <Skeleton className="h-56 w-full" />
+          ) : aggregateChart.length === 0 ? (
+            <div className="flex items-center justify-center h-56 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+              No data available for this period
+            </div>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart
-                data={aggregateChart}
-                margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="inGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor={CHART_STYLE.primary}
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor={CHART_STYLE.primary}
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                  <linearGradient id="outGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor={CHART_STYLE.chart2}
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor={CHART_STYLE.chart2}
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke={CHART_STYLE.grid}
-                />
-                <XAxis
-                  dataKey="date"
-                  tick={{
-                    fontSize: 11,
-                    fill: CHART_STYLE.muted,
-                    fontFamily: "DM Mono, monospace",
-                  }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: CHART_STYLE.muted }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip {...tooltipStyle} />
-                <Legend
-                  wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="tokensIn"
-                  name="Tokens In"
-                  stroke={CHART_STYLE.primary}
-                  fill="url(#inGrad)"
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="tokensOut"
-                  name="Tokens Out"
-                  stroke={CHART_STYLE.chart2}
-                  fill="url(#outGrad)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div style={{ width: "100%", height: "220px" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={aggregateChart}
+                  margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="inGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={colors.primary} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={colors.primary} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="outGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={colors.chart2} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={colors.chart2} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11, fill: colors.muted, fontFamily: "monospace" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: colors.muted }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip {...tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }} />
+                  <Area
+                    type="monotone"
+                    dataKey="tokensIn"
+                    name="Tokens In"
+                    stroke={colors.primary}
+                    fill="url(#inGrad)"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: colors.primary, strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="tokensOut"
+                    name="Tokens Out"
+                    stroke={colors.chart2}
+                    fill="url(#outGrad)"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: colors.chart2, strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </CardContent>
       </Card>

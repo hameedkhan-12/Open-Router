@@ -11,6 +11,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { ApiKeyDTO } from "@repo/shared";
 import {
   useApiKeys,
@@ -18,7 +24,17 @@ import {
   useDeleteApiKey,
   useUpdateApiKey,
 } from "hooks/useApiKeys";
-import { Badge, Key, Loader2, Plus } from "lucide-react";
+import {
+  Badge,
+  CheckCheck,
+  Copy,
+  Key,
+  Loader2,
+  Plus,
+  Power,
+  PowerOff,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -31,7 +47,7 @@ const KeyRow = ({ apiKey }: ApiKeyProps) => {
   const [copied, setCopied] = useState(false);
 
   const copyKey = async () => {
-    await navigator.clipboard.writeText(apiKey.key);
+    await navigator.clipboard.writeText(apiKey?.key);
     setCopied(true);
     toast.success("Copied to clipboard");
     setTimeout(() => {
@@ -41,26 +57,93 @@ const KeyRow = ({ apiKey }: ApiKeyProps) => {
 
   const toggleDisabled = async () => {
     await updateKey.mutateAsync({
-      id: apiKey.id,
+      id: apiKey?.id,
       updates: {
-        disabled: !apiKey.disabled,
+        disabled: !apiKey?.disabled,
       },
     });
     toast.success(
-      `Key ${apiKey.name} ${apiKey.disabled ? "enabled" : "disabled"}`,
+      `Key ${apiKey?.name} ${apiKey?.disabled ? "enabled" : "disabled"}`,
     );
   };
 
+  const handleDelete = async () => {
+    await deleteKey.mutateAsync(apiKey?.id);
+    toast.success(`Key ${apiKey?.name} deleted`);
+  };
+
   return (
-    <div>
-      <div>
-        <div>
-          <span>{apiKey.name}</span>
-          <Badge fontVariant={apiKey.disabled ? "warning" : "success"}>
-            {apiKey.disabled ? "Disabled" : "Enabled"}
+    <div className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-secondary/30">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2.5 mb-1">
+          <span className="font-semibold text-sm truncate">{apiKey?.name}</span>
+          <Badge fontVariant={apiKey?.disabled ? "warning" : "success"}>
+            {apiKey?.disabled ? "Disabled" : "Enabled"}
           </Badge>
         </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <code className="rounded bg-secondary px-2 py-0.5 font-mono text-xs text-muted-foreground border border-border">
+            {apiKey?.key.slice(0, 10)}••••••••••{apiKey?.key.slice(-4)}
+          </code>
+          <span>
+            Created {new Date(apiKey?.createdAt).toLocaleDateString()}
+            {apiKey?.lastUsedAt &&
+              `. Last used ${new Date(apiKey?.lastUsedAt).toLocaleDateString()}`}
+          </span>
+        </div>
       </div>
+
+      <TooltipProvider delayDuration={0}>
+        <div className="flex items-center gap-1 shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={copyKey}>
+                {copied ? (
+                  <CheckCheck className="size-4 text-emerald-400" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy key</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleDisabled}
+                disabled={updateKey.isPending}
+              >
+                {apiKey?.disabled ? (
+                  <Power className="size-4 text-emerald-400" />
+                ) : (
+                  <PowerOff className="size-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {apiKey?.disabled ? "Enable" : "Disable"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleteKey?.isPending}
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete key</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
     </div>
   );
 };
@@ -75,22 +158,26 @@ const ApiKeysPage = () => {
 
     if (!keyName.trim()) return;
 
-    await createKey.mutateAsync({
-      name: keyName.trim(),
-    });
-
-    toast.success(`Created key ${keyName.trim()}`);
-    setKeyName("");
-    setDialogOpen(false);
+    try {
+      await createKey.mutateAsync({
+        name: keyName.trim(),
+      });
+  
+      toast.success(`Created key ${keyName.trim()}`);
+      setKeyName("");
+      setDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
   return (
-    <div>
-      <div>
+    <div className="mx-auto max-w-4xl space-y-6 p-8">
+      <div className="flex items-start justify-between">
         <div>
-          <h1>API Keys</h1>
+          <h1 className="text-3xl font-bold tracking-tight">API Keys</h1>
           <p>Manage keys for authenticating AI requests</p>
         </div>
-        <Button>
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="mr-1 size-4" />
           New Key
         </Button>
@@ -98,7 +185,7 @@ const ApiKeysPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your Keys</CardTitle>
+          <CardTitle className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Your Keys</CardTitle>
         </CardHeader>
         <CardContent className="p-0 mt-3">
           {isLoading ? (
@@ -125,8 +212,8 @@ const ApiKeysPage = () => {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {keys.map((key) => (
-                <KeyRow key={key.id} apiKey={key} />
+              {keys?.map((key) => (
+                <KeyRow key={key?.id} apiKey={key} />
               ))}
             </div>
           )}
@@ -163,8 +250,8 @@ const ApiKeysPage = () => {
                 Cancel
               </Button>
               <Button
-              type="submit"
-              disabled={createKey.isPending || !keyName.trim()}
+                type="submit"
+                disabled={createKey.isPending || !keyName.trim()}
               >
                 {createKey.isPending && (
                   <Loader2 className="mr-1 size-4 animate-spin" />
